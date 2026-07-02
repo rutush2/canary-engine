@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canary Engine Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
+
+    <header class="border-b border-gray-800 bg-gray-950 p-6 shadow-md">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold tracking-tight text-indigo-400">Canary Control Board</h1>
+            <span class="bg-green-900/40 text-green-400 border border-green-800/60 text-xs px-3 py-1 rounded-full font-medium">Engine Active</span>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <section class="space-y-6">
+            <div class="bg-gray-950 border border-gray-800 rounded-xl p-6 shadow-sm">
+                <form id="tenantForm" onsubmit="createTenant(event)" class="space-y-4">
+                    <h3 class="text-base font-semibold text-gray-200">Create Tenant Profile</h3>
+                    <div>
+                        <input type="text" id="tenantId" placeholder="Tenant ID (e.g. Acme)" required class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <input type="text" id="tenantName" placeholder="Tenant Corporate Name" required class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm py-2 px-4 rounded-lg transition-colors cursor-pointer">Onboard Tenant</button>
+                </form>
+            </div>
+
+            <div id="flagFormContainer" class="bg-gray-950 border border-gray-800 rounded-xl p-6 shadow-sm hidden">
+                <form id="flagForm" onsubmit="createFlag(event)" class="space-y-4">
+                    <h3 class="text-base font-semibold text-gray-200">Provision Existing Feature Flag</h3>
+                    <div>
+                        <input type="text" id="flagKey" placeholder="Flag Key (e.g. beta-dashboard)" required class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 uppercase mb-1">Rollout Percentage</label>
+                        <input type="number" id="flagRollout" min="0" max="100" value="100" required class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <input type="checkbox" id="flagEnabled" checked class="w-4 h-4 rounded border-gray-800 text-indigo-600 bg-gray-900 focus:ring-0">
+                        <label for="flagEnabled" class="text-sm text-gray-300">Enable Flag State Immediately</label>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm py-2 px-4 rounded-lg transition-colors cursor-pointer">Provision Flag</button>
+                </form>
+            </div>
+
+            <div class="bg-gray-950 border border-gray-800 rounded-xl p-6 shadow-sm">
+                <h2 class="text-lg font-semibold text-gray-200 mb-2">Tenant Registry Roster</h2>
+                <p class="text-xs text-gray-500 mb-4">Click any card below to select its environment and load profiles.</p>
+                <div id="tenantRoster" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {% for tenant in tenants %}
+                    <div onclick="selectTenant('{{ tenant.id }}', this)" class="tenant-card flex items-center justify-between p-3 bg-gray-900 border border-gray-800 rounded-lg cursor-pointer hover:border-indigo-500/50 transition-all">
+                        <div>
+                            <p class="text-sm font-medium text-gray-200">{{ tenant.name }}</p>
+                            <p class="text-xs text-gray-500">ID: {{ tenant.id }}</p>
+                        </div>
+                        <span class="status-dot w-2 h-2 rounded-full bg-gray-700"></span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <section class="lg:col-span-2 space-y-6">
+
+            <div class="bg-gray-950 border border-gray-800 rounded-xl p-6 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-gray-200">Targeted Feature Flags</h2>
+                    <span id="activeContextLabel" class="text-xs text-indigo-400 font-mono font-medium"></span>
+                </div>
+                <div id="flagsContainer" class="text-sm text-gray-400 py-4">
+                    <div class="text-center">Select an environment file from the left registry roster to explore live allocations.</div>
+                </div>
+            </div>
+
+            <div id="testingPanel" class="bg-gray-950 border border-gray-800 rounded-xl p-6 shadow-sm hidden">
+                <h2 class="text-lg font-semibold text-gray-200 mb-4">Evaluation Verification Matrix</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 uppercase mb-2">Test User ID</label>
+                        <input type="text" id="testUserId" value="user_7719" class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 uppercase mb-2">Target Flag Key</label>
+                        <input type="text" id="testFlagKey" placeholder="e.g. beta-dashboard" class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+                <div class="mt-4 bg-gray-900 border border-gray-800 rounded-lg p-3 grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 uppercase mb-1">Context Property Target</label>
+                        <select id="evalContextKey" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none">
+                            <option value="tier">User Tier</option>
+                            <option value="country">Country Code</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 uppercase mb-1">Value Sent</label>
+                        <input type="text" id="evalContextValue" placeholder="e.g. premium, IL" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none">
+                    </div>
+                </div>
+                <div class="mt-4 flex space-x-3">
+                    <button onclick="evaluateTarget()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm py-2 px-4 rounded-lg transition-colors cursor-pointer">Execute Single Evaluation</button>
+                    <button onclick="runBulkSimulation()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm py-2 px-4 rounded-lg transition-colors cursor-pointer">Run 100x Bulk Simulation</button>
+                </div>
+
+                <div id="evaluationResult" class="mt-4 p-4 rounded-lg hidden text-sm font-medium"></div>
+
+                <div id="simulationResult" class="mt-4 p-4 bg-gray-900 border border-gray-800 rounded-lg hidden space-y-3">
+                    <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Simulation Distribution Matrix (n=100)</h4>
+                    <div class="w-full bg-gray-950 rounded-full h-4 overflow-hidden flex border border-gray-800">
+                        <div id="simBarGranted" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
+                        <div id="simBarDenied" class="bg-rose-500 h-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs font-medium">
+                        <span id="simCountGranted" class="text-emerald-400">Granted: 0%</span>
+                        <span id="simCountDenied" class="text-rose-400">Isolated/Denied: 0%</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        let currentTenantId = null;
+        let activeTenantFlags = [];
+
+        async function htmlFetch(url, options = {}) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || "Network assertion failure.");
+                }
+                return await response.json();
+            } catch (err) {
+                alert(`Operation failed: ${err.message}`);
+                return null;
+            }
+        }
+
+        async function createTenant(event) {
+            event.preventDefault();
+            const id = document.getElementById('tenantId').value.trim();
+            const name = document.getElementById('tenantName').value.trim();
+
+            const data = await htmlFetch('/api/tenants/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, name })
+            });
+
+            if (data) {
+                const roster = document.getElementById('tenantRoster');
+                const card = document.createElement('div');
+                card.className = "tenant-card flex items-center justify-between p-3 bg-gray-900 border border-gray-800 rounded-lg cursor-pointer hover:border-indigo-500/50 transition-all";
+                card.setAttribute('onclick', `selectTenant('${data.id}', this)`);
+                card.innerHTML = `
+                    <div>
+                        <p class="text-sm font-medium text-gray-200">${data.name}</p>
+                        <p class="text-xs text-gray-500">ID: ${data.id}</p>
+                    </div>
+                    <span class="status-dot w-2 h-2 rounded-full bg-gray-700"></span>
+                `;
+                roster.appendChild(card);
+                document.getElementById('tenantForm').reset();
+                selectTenant(data.id, card);
+            }
+        }
+
+        async function selectTenant(tenantId, element) {
+            currentTenantId = tenantId;
+
+            document.querySelectorAll('.tenant-card').forEach(card => {
+                card.classList.remove('border-indigo-500', 'bg-gray-900/60');
+                card.classList.add('border-gray-800', 'bg-gray-900');
+                card.querySelector('.status-dot').className = "status-dot w-2 h-2 rounded-full bg-gray-700";
+            });
+
+            element.classList.remove('border-gray-800', 'bg-gray-900');
+            element.classList.add('border-indigo-500', 'bg-gray-900/60');
+            element.querySelector('.status-dot').className = "status-dot w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50";
+
+            document.getElementById('activeContextLabel').innerText = `SCOPE: ${tenantId}`;
+
+            document.getElementById('flagFormContainer').classList.remove('hidden');
+            document.getElementById('testingPanel').classList.remove('hidden');
+
+            const flags = await htmlFetch(`/api/tenants/${tenantId}/flags/`);
+            activeTenantFlags = flags && Array.isArray(flags) ? flags : [];
+            renderFlagsTable();
+        }
+
+        async function createFlag(event) {
+            event.preventDefault();
+            if (!currentTenantId) return;
+
+            const key = document.getElementById('flagKey').value.trim();
+            const rollout_percentage = parseInt(document.getElementById('flagRollout').value);
+            const is_enabled = document.getElementById('flagEnabled').checked;
+
+            const data = await htmlFetch(`/api/tenants/${currentTenantId}/flags/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, rollout_percentage, is_enabled, targeting_rules: null })
+            });
+
+            if (data) {
+                activeTenantFlags.push(data);
+                renderFlagsTable();
+                document.getElementById('flagForm').reset();
+                document.getElementById('flagRollout').value = "100";
+                document.getElementById('flagEnabled').checked = true;
+            }
+        }
+
+        function renderFlagsTable() {
+            const container = document.getElementById('flagsContainer');
+            if (activeTenantFlags.length === 0) {
+                container.innerHTML = `<div class="text-center py-4 text-gray-500">No feature flags provisioned for this tenant environment configuration file.</div>`;
+                return;
+            }
+
+            let html = `
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-gray-800 text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                            <th class="pb-3">Flag Key</th>
+                            <th class="pb-3">Status</th>
+                            <th class="pb-3">Rollout Allocation</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800/40">
+            `;
+
+            activeTenantFlags.forEach(flag => {
+                html += `
+                    <tr class="text-sm hover:bg-gray-900/30 transition-colors">
+                        <td class="py-3 font-mono text-indigo-300 font-medium">${flag.key}</td>
+                        <td class="py-3">
+                            <span class="px-2 py-0.5 rounded text-xs font-medium ${flag.is_enabled ? 'bg-green-950 text-green-400 border border-green-900/50' : 'bg-gray-900 text-gray-400 border border-gray-800'}">
+                                ${flag.is_enabled ? 'Active' : 'Disabled'}
+                            </span>
+                        </td>
+                        <td class="py-3 font-medium text-gray-300">${flag.rollout_percentage}%</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        async function evaluateTarget() {
+            if (!currentTenantId) return;
+
+            const userId = document.getElementById('testUserId').value.trim();
+            const flagKey = document.getElementById('testFlagKey').value.trim();
+            const resultBox = document.getElementById('evaluationResult');
+
+            const contextKey = document.getElementById('evalContextKey').value;
+            const contextValue = document.getElementById('evalContextValue').value.trim();
+
+            let context = {};
+            if (contextValue) {
+                context[contextKey] = contextValue;
+            }
+
+            const data = await htmlFetch(`/api/tenants/${currentTenantId}/flags/${flagKey}/evaluate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, context: context })
+            });
+
+            if (data) {
+                document.getElementById('simulationResult').classList.add('hidden');
+                resultBox.classList.remove('hidden', 'bg-green-950', 'text-green-400', 'bg-red-950', 'text-red-400', 'border', 'border-green-800', 'border-red-800');
+                if (data.enabled) {
+                    resultBox.innerText = `Access Granted: User ${userId} passed targeting rules and falls within the allocated canary percentage bucket for [${flagKey}].`;
+                    resultBox.classList.add('bg-green-950', 'text-green-400', 'border', 'border-green-800/60');
+                } else {
+                    resultBox.innerText = `Access Denied: User ${userId} is isolated from variant allocation due to context isolation rules or percentage constraints for [${flagKey}].`;
+                    resultBox.classList.add('bg-red-950', 'text-red-400', 'border', 'border-red-800/60');
+                }
+            }
+        }
+
+        async function runBulkSimulation() {
+            if (!currentTenantId) return;
+
+            const flagKey = document.getElementById('testFlagKey').value.trim();
+            const contextKey = document.getElementById('evalContextKey').value;
+            const contextValue = document.getElementById('evalContextValue').value.trim();
+
+            if (!flagKey) {
+                alert("Please declare a targeted flag key target.");
+                return;
+            }
+
+            let context = {};
+            if (contextValue) {
+                context[contextKey] = contextValue;
+            }
+
+            document.getElementById('evaluationResult').classList.add('hidden');
+
+            let grantedCount = 0;
+            const totalRuns = 100;
+
+            // Run 100 independent random iterations sequentially through our deterministic calculation loops
+            for (let i = 0; i < totalRuns; i++) {
+                const randomUserId = `sim_user_${Math.floor(Math.random() * 100000)}`;
+                const data = await htmlFetch(`/api/tenants/${currentTenantId}/flags/${flagKey}/evaluate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: randomUserId, context: context })
+                });
+                if (data && data.enabled) {
+                    grantedCount++;
+                }
+            }
+
+            const deniedCount = totalRuns - grantedCount;
+
+            // Render dynamic metrics output elements
+            document.getElementById('simulationResult').classList.remove('hidden');
+            document.getElementById('simBarGranted').style.width = `${grantedCount}%`;
+            document.getElementById('simBarDenied').style.width = `${deniedCount}%`;
+            document.getElementById('simCountGranted').innerText = `Granted: ${grantedCount}%`;
+            document.getElementById('simCountDenied').innerText = `Isolated/Denied: ${deniedCount}%`;
+        }
+    </script>
+</body>
+</html>
+
