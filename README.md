@@ -48,7 +48,7 @@ canary_engine/
 
 1. **Clone the Repository:**
 ```bash
-git clone [https://github.com/YOUR_USERNAME/canary-engine.git](https://github.com/YOUR_USERNAME/canary-engine.git)
+git clone [https://github.com/rutush2/canary-engine.git](https://github.com/rutush2/canary-engine.git)
 cd canary-engine
 
 ```
